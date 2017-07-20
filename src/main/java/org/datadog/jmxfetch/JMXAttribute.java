@@ -4,24 +4,21 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
-
 import javax.management.AttributeNotFoundException;
 import javax.management.InstanceNotFoundException;
 import javax.management.MBeanAttributeInfo;
 import javax.management.MBeanException;
 import javax.management.ObjectName;
 import javax.management.ReflectionException;
-
 import org.apache.log4j.Logger;
 
 public abstract class JMXAttribute {
@@ -30,7 +27,7 @@ public abstract class JMXAttribute {
     protected static final String METRIC_TYPE = "metric_type";
     protected final static Logger LOGGER = Logger.getLogger(JMXAttribute.class.getName());
     private static final List<String> EXCLUDED_BEAN_PARAMS = Arrays.asList("domain", "domain_regex", "bean_name", "bean",
-                                                                           "bean_regex", "attribute", "exclude_tags", "tags");
+                                                                           "bean_regex", "attribute", "exclude_tags", "tags", "complex_attribute");
     private static final String FIRST_CAP_PATTERN = "(.)([A-Z][a-z]+)";
     private static final String ALL_CAP_PATTERN = "([a-z0-9])([A-Z])";
     private static final String METRIC_REPLACEMENT = "([^a-zA-Z0-9_.]+)|(^[^a-zA-Z]+)";
@@ -372,6 +369,19 @@ public abstract class JMXAttribute {
                 }
             }
             if (valueConversions == null) {
+                Object includedComplexAttribute = matchingConf.getInclude().getComplexAttribute();
+                if (includedComplexAttribute instanceof LinkedHashMap<?, ?>) {
+                    String attributeName = this.attribute.getName();
+                    LinkedHashMap<String, LinkedHashMap<Object, Object>> attribute =
+                        ((LinkedHashMap<String, LinkedHashMap<String, LinkedHashMap<Object, Object>>>) includedComplexAttribute)
+                            .get(attributeName);
+
+                    if (attribute != null) {
+                        valueConversions = attribute.get("values");
+                    }
+                }
+            }
+            if (valueConversions == null) {
                 valueConversions = new LinkedHashMap<Object, Object>();
             }
         }
@@ -424,6 +434,16 @@ public abstract class JMXAttribute {
         if (include.getAttribute() instanceof LinkedHashMap<?, ?>) {
             LinkedHashMap<String, LinkedHashMap<String, String>> attribute = (LinkedHashMap<String, LinkedHashMap<String, String>>) (include.getAttribute());
             alias = getUserAlias(attribute, fullAttributeName);
+        }
+
+        if (alias == null && field != null) {
+            if (include.getComplexAttribute() instanceof LinkedHashMap<?, ?>) {
+                LinkedHashMap<String, LinkedHashMap<String, String>> complexAttribute = (LinkedHashMap<String, LinkedHashMap<String, String>>) (include.getComplexAttribute());
+                final String userAlias = getUserAlias(complexAttribute, getAttribute().getName());
+                if (userAlias != null) {
+                    alias = userAlias + "." + field;
+                }
+            }
         }
 
         if (alias == null) {
@@ -529,6 +549,17 @@ public abstract class JMXAttribute {
                     }
                 }
             }
+            Object includeComplexAttribute = include.getComplexAttribute();
+            if (includeComplexAttribute instanceof LinkedHashMap<?, ?>) {
+                LinkedHashMap<String, ArrayList<String>> attributeParams = ((LinkedHashMap<String, LinkedHashMap<String, ArrayList<String>>>)includeComplexAttribute).get(attributeName);
+                if (attributeParams != null) {
+                    ArrayList<String> yamlTags = attributeParams.get("tags");
+                    if ( yamlTags != null) {
+                        defaultTagsList.addAll(yamlTags);
+                    }
+                }
+            }
+
         }
         tags = new String[defaultTagsList.size()];
         tags = defaultTagsList.toArray(tags);

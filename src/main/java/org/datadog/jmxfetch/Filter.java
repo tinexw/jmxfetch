@@ -156,6 +156,11 @@ class Filter {
         return filter.get("attribute");
     }
 
+    public Object getComplexAttribute() {
+        return filter.get("complex_attribute");
+    }
+
+
     public ArrayList<String> getParameterValues(String parameterName) {
         // Return bean attributes values as an ArrayList wherever it's defined as
         // list or not

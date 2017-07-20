@@ -101,6 +101,17 @@ public class JMXComplexAttribute extends JMXAttribute {
                 metricType = attribute.get(subAttributeName).get("type");
             }
         }
+        if (metricType == null) {
+            if (include.getComplexAttribute() instanceof LinkedHashMap<?, ?>) {
+                LinkedHashMap<String, LinkedHashMap<String, String>> attribute = (LinkedHashMap<String, LinkedHashMap<String, String>>) (include
+                    .getComplexAttribute());
+                metricType = attribute.get(getAttribute().getName()).get(METRIC_TYPE);
+                if (metricType == null) {
+                    metricType = attribute.get(getAttribute().getName()).get("type");
+                }
+            }
+        }
+
 
         if (metricType == null) {
             metricType = "gauge";
@@ -134,7 +145,7 @@ public class JMXComplexAttribute extends JMXAttribute {
         } else if ((params.getAttribute() instanceof ArrayList<?>
                 && ((ArrayList<String>) (params.getAttribute())).contains(subAttributeName))) {
             return true;
-        } else if (params.getAttribute() == null) {
+        } else if (params.getAttribute() == null && params.getComplexAttribute() == null) {
             return matchOnEmpty;
         }
         return false;
@@ -142,7 +153,10 @@ public class JMXComplexAttribute extends JMXAttribute {
     }
 
     private boolean matchAttribute(Configuration configuration) {
-        if (matchSubAttribute(configuration.getInclude(), getAttributeName(), true)) {
+        if ((configuration.getInclude().getComplexAttribute() instanceof LinkedHashMap<?, ?>)
+            && ((LinkedHashMap<String, Object>) (configuration.getInclude().getComplexAttribute())).containsKey(getAttributeName())) {
+            return true;
+        } else if (matchSubAttribute(configuration.getInclude(), getAttributeName(), true)) {
             return true;
         }
 
